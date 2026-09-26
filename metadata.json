@@ -1,0 +1,6 @@
+{
+  "name": "Tool IMG",
+  "description": "Tool IMG - Công cụ trích xuất và xuất ảnh báo cáo dữ liệu kho hàng.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

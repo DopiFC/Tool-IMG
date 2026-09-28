@@ -37,12 +37,13 @@ export function waitForDomRender(): Promise<void> {
 }
 
 /**
- * Hàm xuất bảng thành ảnh với Promise, cấu hình:
- * { scale: 2, useCORS: true, logging: false }
- * Tối ưu đặc biệt cho bảng siêu dài (hàng trăm đến hàng nghìn dòng):
+ * Hàm xuất bảng thành ảnh với Promise, cấu hình theo yêu cầu:
+ * { scale: 2, useCORS: true, scrollY: -window.scrollY, windowHeight: document.documentElement.scrollHeight }
+ * Tối ưu đặc biệt cho bảng siêu dài:
  * - Đo chính xác toàn bộ chiều cao thực của bảng (scrollHeight)
- * - Thiết lập windowHeight & height bằng đúng scrollHeight để không bị cắt xén hay đen/trắng ảnh
- * - Reset scrollY: 0, scrollX: 0
+ * - Thiết lập windowHeight bằng document.documentElement.scrollHeight
+ * - Reset scrollY: -window.scrollY theo yêu cầu
+ * - Viền bảng rõ nét 1px solid black
  * - onclone: ép bung toàn bộ container cha và bảng, không cho phép overflow: hidden
  */
 export async function exportTableToImage(
@@ -68,8 +69,10 @@ export async function exportTableToImage(
   );
 
   return new Promise((resolve, reject) => {
-    // 3. Chụp phần tử với cấu hình tối ưu triệt để cho bảng siêu dài
-    const winHeight = document.documentElement ? document.documentElement.scrollHeight : actualHeight;
+    const scrollOffset = typeof window !== 'undefined' ? -window.scrollY : 0;
+    const winHeight = typeof document !== 'undefined' && document.documentElement
+      ? Math.max(document.documentElement.scrollHeight, actualHeight)
+      : actualHeight;
 
     html2canvas(targetElement, {
       scale: 2,
@@ -77,13 +80,13 @@ export async function exportTableToImage(
       logging: false,
       backgroundColor: '#ffffff',
       scrollX: 0,
-      scrollY: 0,
+      scrollY: scrollOffset, // { scrollY: -window.scrollY } theo chỉ thị
       width: actualWidth,
       height: actualHeight,
       windowWidth: actualWidth + 100,
-      windowHeight: winHeight, // Bắt buộc { scale: 2, useCORS: true, windowHeight: document.documentElement.scrollHeight }
+      windowHeight: winHeight, // { windowHeight: document.documentElement.scrollHeight }
       onclone: (_clonedDoc: Document, clonedEl: HTMLElement) => {
-        // Đảm bảo phần tử clone hiển thị toàn bộ nội dung, không bị giới hạn bất kỳ thuộc tính nào
+        // Đảm bảo phần tử clone hiển thị toàn bộ nội dung, không bị giới hạn
         clonedEl.style.overflow = 'visible';
         clonedEl.style.height = `${actualHeight}px`;
         clonedEl.style.maxHeight = 'none';
@@ -92,14 +95,14 @@ export async function exportTableToImage(
         clonedEl.style.position = 'static';
         clonedEl.style.transform = 'none';
 
-        // Đảm bảo toàn bộ bảng và ô trong bảng tuân thủ nghiêm ngặt Times New Roman 13px và viền 1px solid #ccc
+        // Đảm bảo toàn bộ bảng và ô trong bảng tuân thủ nghiêm ngặt Times New Roman 13px và viền 1px solid black rõ nét
         const tables = clonedEl.querySelectorAll('table');
         tables.forEach((tbl) => {
           const t = tbl as HTMLElement;
           t.style.fontFamily = "'Times New Roman', serif";
           t.style.fontSize = '13px';
           t.style.borderCollapse = 'collapse';
-          t.style.border = '1px solid #ccc';
+          t.style.border = '1px solid black';
           t.style.overflow = 'visible';
           t.style.height = 'auto';
         });
@@ -109,7 +112,7 @@ export async function exportTableToImage(
           const c = cell as HTMLElement;
           c.style.fontFamily = "'Times New Roman', serif";
           c.style.fontSize = '13px';
-          c.style.border = '1px solid #ccc';
+          c.style.border = '1px solid black';
           c.style.whiteSpace = 'normal';
           c.style.wordBreak = 'break-word';
         });
@@ -146,7 +149,7 @@ export async function exportTableToImage(
 }
 
 /**
- * Hỗ trợ sao chép ảnh trực tiếp vào Clipboard cho bảng siêu dài
+ * Hỗ trợ sao chép ảnh trực tiếp vào Clipboard cho bảng
  */
 export async function copyTableToClipboard(targetElement: HTMLElement): Promise<boolean> {
   await waitForFontsLoaded();
@@ -165,7 +168,10 @@ export async function copyTableToClipboard(targetElement: HTMLElement): Promise<
     targetElement.clientHeight
   );
 
-  const winHeight = document.documentElement ? document.documentElement.scrollHeight : actualHeight;
+  const scrollOffset = typeof window !== 'undefined' ? -window.scrollY : 0;
+  const winHeight = typeof document !== 'undefined' && document.documentElement
+    ? Math.max(document.documentElement.scrollHeight, actualHeight)
+    : actualHeight;
 
   return new Promise((resolve, reject) => {
     html2canvas(targetElement, {
@@ -174,7 +180,7 @@ export async function copyTableToClipboard(targetElement: HTMLElement): Promise<
       logging: false,
       backgroundColor: '#ffffff',
       scrollX: 0,
-      scrollY: 0,
+      scrollY: scrollOffset,
       width: actualWidth,
       height: actualHeight,
       windowWidth: actualWidth + 100,
@@ -185,6 +191,23 @@ export async function copyTableToClipboard(targetElement: HTMLElement): Promise<
         clonedEl.style.maxHeight = 'none';
         clonedEl.style.width = `${actualWidth}px`;
         clonedEl.style.maxWidth = 'none';
+
+        const tables = clonedEl.querySelectorAll('table');
+        tables.forEach((tbl) => {
+          const t = tbl as HTMLElement;
+          t.style.fontFamily = "'Times New Roman', serif";
+          t.style.fontSize = '13px';
+          t.style.borderCollapse = 'collapse';
+          t.style.border = '1px solid black';
+        });
+
+        const cells = clonedEl.querySelectorAll('th, td');
+        cells.forEach((cell) => {
+          const c = cell as HTMLElement;
+          c.style.fontFamily = "'Times New Roman', serif";
+          c.style.fontSize = '13px';
+          c.style.border = '1px solid black';
+        });
       }
     })
       .then((canvas: HTMLCanvasElement) => {

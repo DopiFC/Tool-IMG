@@ -1,16 +1,17 @@
 import Papa from 'papaparse';
-import { FilteredWarehouseItem, WarehouseGroup, ParseResult } from '../types';
-
-export const TARGET_WAREHOUSES = [
-  'Kho hàng KM',
-  'Kho hàng chờ xử lý',
-  'Kho hành chính'
-] as const;
+import {
+  FilteredWarehouseItem,
+  WarehouseGroup,
+  TableReportData,
+  MergedDataResult,
+  WarehouseInfo,
+  ParsedFileInfo
+} from '../types';
 
 /**
  * Loại bỏ ký tự BOM (\uFEFF) nếu có và trim khoảng trắng
  */
-function cleanString(str: unknown): string {
+export function cleanString(str: unknown): string {
   if (str === null || str === undefined) return '';
   return String(str).replace(/^\uFEFF/, '').trim();
 }
@@ -18,8 +19,8 @@ function cleanString(str: unknown): string {
 /**
  * Chuẩn hóa chuỗi để so khớp linh hoạt không phân biệt dấu và khoảng trắng thừa
  */
-function normalizeText(text: string): string {
-  return text
+export function normalizeText(text: string): string {
+  return String(text || '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -31,7 +32,7 @@ function normalizeText(text: string): string {
 /**
  * Tìm giá trị cột tương ứng trong dòng dữ liệu từ danh sách tên cột tiềm năng
  */
-function findColumnValue(row: Record<string, any>, candidates: string[]): string {
+export function findColumnValue(row: Record<string, any>, candidates: string[]): string {
   const rowKeys = Object.keys(row);
 
   // 1. So khớp chính xác
@@ -69,16 +70,16 @@ function findColumnValue(row: Record<string, any>, candidates: string[]): string
 }
 
 /**
- * Trích xuất Đơn vị tính (ĐVT) đa cấp (Ưu tiên từ nhỏ nhất đến lớn nhất):
+ * LOGIC ĐƠN VỊ TÍNH ĐA CẤP (CRITICAL - BẢO LƯU 100%):
  * Cột "Tổng số lượng" trong file đại diện cho ĐƠN VỊ NHỎ NHẤT hiện có của sản phẩm.
  *
- * Kiểm tra lần lượt 3 cấp đơn vị để tìm ra ĐVT chính xác:
+ * Kiểm tra lần lượt 3 cấp đơn vị để tìm ra ĐVT chính xác (ưu tiên từ nhỏ đến lớn):
  * - Ưu tiên 1 (Level 3): Cột "Tên ĐVT L3" (ví dụ: Viên, Gói nhỏ, Ống con).
  *   Nếu cột này CÓ DỮ LIỆU (khác rỗng, không null/undefined sau khi trim), BẮT BUỘC lấy giá trị này.
- * - Ưu tiên 2 (Level 2): Nếu cột L3 trống, kiểm tra cột "Tên ĐVT L2" (ví dụ: Vỉ, Vĩ, Hộp nhỏ).
+ * - Ưu tiên 2 (Level 2): Nếu cột L3 trống, kiểm tra cột "Tên ĐVT L2" (ví dụ: Vỉ, Vĩ, Hộp con).
  *   Nếu CÓ DỮ LIỆU, lấy giá trị này.
  * - Ưu tiên 3 (Level 1): Nếu cả L3 và L2 đều trống, lấy giá trị ở cột "Tên ĐVT L1" (ví dụ: Hộp, Tuýp, Chai, Lọ, Thùng).
- * - Fallback: Nếu không có các cột L1/L2/L3, kiểm tra các cột ĐVT chung ("Tên ĐVT", "ĐVT", "Đơn vị tính").
+ * - Fallback: Nếu không có các cột L1/L2/L3, kiểm tra các cột ĐVT chung ("Tên ĐVT", "ĐVT", "Đơn vị tính", "Unit").
  */
 export function extractDvt(row: Record<string, any>): string {
   // Ưu tiên 1 (Level 3): Đơn vị nhỏ nhất (vd: Viên)
@@ -117,116 +118,189 @@ export function extractDvt(row: Record<string, any>): string {
 }
 
 /**
- * Kiểm tra xem "Tên kho" có chứa đúng 1 trong 3 kho con yêu cầu không:
- * 1. "Kho hàng KM" (hoặc chứa "kho hang km", "kho km")
- * 2. "Kho hàng chờ xử lý" (hoặc chứa "kho hang cho xu ly", "kho cho xu ly")
- * 3. "Kho hành chính" (hoặc chứa "kho hanh chinh", "hanh chinh")
- */
-export function matchTargetWarehouse(tenKho: string): string | null {
-  if (!tenKho) return null;
-  const rawClean = cleanString(tenKho).toLowerCase();
-  const normalized = normalizeText(tenKho);
-
-  // 1. Kho hàng KM
-  if (
-    rawClean.includes('kho hàng km') ||
-    rawClean.includes('kho hang km') ||
-    rawClean.includes('kho km') ||
-    normalized.includes('kho hang km') ||
-    normalized.includes('kho km')
-  ) {
-    return 'Kho hàng KM';
-  }
-
-  // 2. Kho hàng chờ xử lý / Kho chờ xử lý
-  if (
-    rawClean.includes('kho hàng chờ xử lý') ||
-    rawClean.includes('kho chờ xử lý') ||
-    rawClean.includes('kho hang cho xu ly') ||
-    rawClean.includes('kho cho xu ly') ||
-    normalized.includes('kho hang cho xu ly') ||
-    normalized.includes('kho cho xu ly')
-  ) {
-    return 'Kho hàng chờ xử lý';
-  }
-
-  // 3. Kho hành chính
-  if (
-    rawClean.includes('kho hành chính') ||
-    rawClean.includes('kho hanh chinh') ||
-    rawClean.includes('hành chính') ||
-    normalized.includes('kho hanh chinh') ||
-    normalized.includes('hanh chinh')
-  ) {
-    return 'Kho hành chính';
-  }
-
-  return null;
-}
-
-/**
  * Chuyển đổi và làm sạch giá trị số lượng thành kiểu số
- * Hỗ trợ các định dạng số: 100, "1,000", "1.500", " 25 "
  */
 export function parseQuantity(rawVal: string | number | undefined | null): number {
   if (rawVal === null || rawVal === undefined) return 0;
   const str = String(rawVal).trim();
   if (!str) return 0;
 
-  // Loại bỏ khoảng trắng và dấu phẩy ngăn cách hàng nghìn (ví dụ "1,500" -> "1500")
   const cleaned = str.replace(/,/g, '').replace(/\s+/g, '');
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
 }
 
 /**
- * Parse file CSV/TSV phân cách bởi dấu Tab (\t)
- * ĐIỀU KIỆN LỌC ĐỒNG THỜI (&&):
- * 1. Cột "Tên kho" PHẢI chứa 1 trong 3 từ khóa: "Kho hàng KM", "Kho chờ xử lý", "Kho hành chính"
- * 2. VÀ Cột "Tổng số lượng" PHẢI > 0 (>= 1). Bằng 0 hoặc không hợp lệ bị loại bỏ hoàn toàn.
- * 
- * KHÔNG GIỚI HẠN SỐ DÒNG: Có bao nhiêu sản phẩm thỏa mãn điều kiện thì đưa hết vào mảng kết quả.
- * Đánh lại số thứ tự STT bắt đầu từ 1 cho từng dòng trong mỗi nhóm kho.
+ * Đọc nội dung 1 file qua Papa.parse (Hỗ trợ Tab \t, dấu phẩy ,, dấu chấm phẩy ;)
  */
-export function parseWarehouseCsv(fileContent: string, fileName: string): ParseResult {
-  // Cấu hình phân cách: Ưu tiên dấu Tab (\t) theo đúng cấu trúc file kho nội bộ
+export function parseSingleFile(content: string, fileName: string): { fileName: string; rows: Record<string, any>[] } {
   let delimiter = '\t';
-  const firstLine = fileContent.split(/\r?\n/)[0] || '';
+  const firstLine = content.split(/\r?\n/)[0] || '';
   if (!firstLine.includes('\t') && firstLine.includes(',')) {
     delimiter = ',';
   } else if (!firstLine.includes('\t') && firstLine.includes(';')) {
     delimiter = ';';
   }
 
-  const parsed = Papa.parse<Record<string, any>>(fileContent, {
+  const parsed = Papa.parse<Record<string, any>>(content, {
     header: true,
     delimiter: delimiter,
     skipEmptyLines: 'greedy',
     transformHeader: (header) => cleanString(header)
   });
 
-  const rawRows = parsed.data || [];
-  const rawCount = rawRows.length;
-
-  // Gom nhóm dữ liệu theo từng kho mục tiêu
-  const groupMap: Record<string, FilteredWarehouseItem[]> = {
-    'Kho hàng KM': [],
-    'Kho hàng chờ xử lý': [],
-    'Kho hành chính': []
+  return {
+    fileName,
+    rows: parsed.data || []
   };
+}
 
-  let discardedCount = 0;
+/**
+ * BƯỚC 1: Đọc bất đồng bộ nhiều file (tối đa 5 file) qua Promise.all và gộp thành mergedData
+ */
+export async function parseMultipleFiles(files: File[]): Promise<MergedDataResult> {
+  const filePromises = files.map((file) => {
+    return new Promise<{ fileName: string; rows: Record<string, any>[] }>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = (e.target?.result as string) || '';
+          const result = parseSingleFile(content, file.name);
+          resolve(result);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.onerror = () => reject(new Error(`Không thể đọc file: ${file.name}`));
+      reader.readAsText(file, 'utf-8');
+    });
+  });
+
+  const parsedFiles = await Promise.all(filePromises);
+
+  const fileNames: string[] = [];
+  const filesInfo: ParsedFileInfo[] = [];
+  let mergedRows: Record<string, any>[] = [];
+
+  for (const item of parsedFiles) {
+    fileNames.push(item.fileName);
+    filesInfo.push({
+      fileName: item.fileName,
+      rowCount: item.rows.length
+    });
+    // Gộp (merge) toàn bộ dữ liệu (array) từ các file này thành một mảng dữ liệu duy nhất
+    mergedRows = mergedRows.concat(item.rows);
+  }
+
+  // Quét và tìm danh sách CÁC KHO DUY NHẤT (Unique "Tên kho")
+  const warehouseMap = new Map<string, { totalRows: number; validRows: number }>();
+
+  for (const row of mergedRows) {
+    const rawKho = findColumnValue(row, ['Tên kho', 'Ten kho', 'Kho']);
+    const cleanKho = cleanString(rawKho);
+    if (!cleanKho) continue;
+
+    const qtyRaw = findColumnValue(row, ['Tổng số lượng', 'Tong so luong', 'Số lượng', 'SL', 'Quantity']);
+    const qty = parseQuantity(qtyRaw);
+
+    const existing = warehouseMap.get(cleanKho) || { totalRows: 0, validRows: 0 };
+    existing.totalRows += 1;
+    if (qty > 0) {
+      existing.validRows += 1;
+    }
+    warehouseMap.set(cleanKho, existing);
+  }
+
+  const detectedWarehouses: WarehouseInfo[] = Array.from(warehouseMap.entries()).map(([name, stats]) => ({
+    name,
+    totalRows: stats.totalRows,
+    validRows: stats.validRows
+  }));
+
+  return {
+    fileNames,
+    filesInfo,
+    mergedRows,
+    totalRawRows: mergedRows.length,
+    detectedWarehouses
+  };
+}
+
+/**
+ * Xử lý chuỗi text thô (ví dụ dữ liệu mẫu) thành MergedDataResult
+ */
+export function parseContentAsMergedData(content: string, fileName = 'sample.tsv'): MergedDataResult {
+  const single = parseSingleFile(content, fileName);
+  const warehouseMap = new Map<string, { totalRows: number; validRows: number }>();
+
+  for (const row of single.rows) {
+    const rawKho = findColumnValue(row, ['Tên kho', 'Ten kho', 'Kho']);
+    const cleanKho = cleanString(rawKho);
+    if (!cleanKho) continue;
+
+    const qtyRaw = findColumnValue(row, ['Tổng số lượng', 'Tong so luong', 'Số lượng', 'SL', 'Quantity']);
+    const qty = parseQuantity(qtyRaw);
+
+    const existing = warehouseMap.get(cleanKho) || { totalRows: 0, validRows: 0 };
+    existing.totalRows += 1;
+    if (qty > 0) {
+      existing.validRows += 1;
+    }
+    warehouseMap.set(cleanKho, existing);
+  }
+
+  const detectedWarehouses: WarehouseInfo[] = Array.from(warehouseMap.entries()).map(([name, stats]) => ({
+    name,
+    totalRows: stats.totalRows,
+    validRows: stats.validRows
+  }));
+
+  return {
+    fileNames: [fileName],
+    filesInfo: [{ fileName, rowCount: single.rows.length }],
+    mergedRows: single.rows,
+    totalRawRows: single.rows.length,
+    detectedWarehouses
+  };
+}
+
+/**
+ * BƯỚC 3: Vẽ Bảng dựa trên những kho được chọn từ Combo box
+ * ĐIỀU KIỆN LỌC ĐỒNG THỜI (&&):
+ * 1. Thuộc các kho được tick chọn
+ * 2. VÀ Tổng số lượng > 0.
+ * 
+ * KHÔNG GIỚI HẠN SỐ DÒNG: 100% dòng được render.
+ * Đánh lại STT bắt đầu từ 1 cho mỗi nhóm kho.
+ * Nếu một kho không có sản phẩm nào có SL > 0, KHÔNG in dòng tiêu đề kho đó.
+ */
+export function buildReportFromMergedData(
+  mergedData: MergedDataResult,
+  selectedWarehouses: string[]
+): TableReportData {
+  // Tạo map chứa danh sách sản phẩm theo từng kho được chọn
+  const groupMap = new Map<string, FilteredWarehouseItem[]>();
+  for (const w of selectedWarehouses) {
+    groupMap.set(w, []);
+  }
+
   let totalFiltered = 0;
+  let discardedCount = 0;
 
-  for (const row of rawRows) {
-    const tenKhoRaw = findColumnValue(row, ['Tên kho', 'Ten kho', 'Kho']);
-    const matchedWarehouse = matchTargetWarehouse(tenKhoRaw);
+  for (const row of mergedData.mergedRows) {
+    const rawKho = findColumnValue(row, ['Tên kho', 'Ten kho', 'Kho']);
+    const cleanKho = cleanString(rawKho);
 
-    const tongSoLuongRaw = findColumnValue(row, ['Tổng số lượng', 'Tong so luong', 'Số lượng', 'SL', 'Quantity']);
-    const numericQuantity = parseQuantity(tongSoLuongRaw);
+    const qtyRaw = findColumnValue(row, ['Tổng số lượng', 'Tong so luong', 'Số lượng', 'SL', 'Quantity']);
+    const numericQuantity = parseQuantity(qtyRaw);
+
+    // Tìm kho tương ứng trong danh sách được chọn
+    const matchedWarehouse = selectedWarehouses.find(
+      (w) => cleanString(w).toLowerCase() === cleanKho.toLowerCase()
+    );
 
     // ĐIỀU KIỆN BẮT BUỘC ĐỒNG THỜI (&&):
-    // 1. Tên kho thuộc 1 trong 3 kho con
+    // 1. Kho nằm trong danh sách được tick chọn
     // 2. VÀ Tổng số lượng phải > 0
     if (!matchedWarehouse || !(numericQuantity > 0)) {
       discardedCount++;
@@ -239,44 +313,46 @@ export function parseWarehouseCsv(fileContent: string, fileName: string): ParseR
     const maSanPham = findColumnValue(row, ['Mã sản phẩm', 'Mã SP', 'Ma san pham', 'SKU']);
     const tenSanPham = findColumnValue(row, ['Tên sản phẩm', 'Tên SP', 'Ten san pham']);
 
-    // Cột "Tên ĐVT": Ưu tiên Level 3 (nhỏ nhất, vd: Viên) -> Level 2 (Vỉ) -> Level 1 (Hộp)
+    // Cột "Tên ĐVT": Đa cấp ưu tiên Level 3 (Viên) -> Level 2 (Vỉ) -> Level 1 (Hộp)
     const tenDvt = extractDvt(row);
 
-    // Đánh số STT bắt đầu từ 1 cho từng dòng trong nhóm kho
-    const currentGroupItems = groupMap[matchedWarehouse];
-    const newStt = currentGroupItems.length + 1;
+    const currentItems = groupMap.get(matchedWarehouse) || [];
+    const newStt = currentItems.length + 1;
 
-    currentGroupItems.push({
+    currentItems.push({
       stt: newStt,
       maShop: maShop || '-',
       tenShop: tenShop || '-',
       maKho: maKho || '-',
-      tenKho: tenKhoRaw || matchedWarehouse,
+      tenKho: cleanKho || matchedWarehouse,
       maSanPham: maSanPham || '-',
       tenSanPham: tenSanPham || '-',
-      tongSoLuong: tongSoLuongRaw || String(numericQuantity),
+      tongSoLuong: qtyRaw || String(numericQuantity),
       tenDvt: tenDvt || '-'
     });
 
+    groupMap.set(matchedWarehouse, currentItems);
     totalFiltered++;
   }
 
-  // Chuyển map thành danh sách nhóm hiển thị (chỉ lấy nhóm có dữ liệu)
+  // Chuyển thành danh sách nhóm (chỉ lấy nhóm có sản phẩm SL > 0)
   const groups: WarehouseGroup[] = [];
-  for (const target of TARGET_WAREHOUSES) {
-    if (groupMap[target] && groupMap[target].length > 0) {
+  for (const w of selectedWarehouses) {
+    const items = groupMap.get(w) || [];
+    if (items.length > 0) {
       groups.push({
-        tenKho: target,
-        items: groupMap[target]
+        tenKho: w,
+        items
       });
     }
   }
 
   return {
-    rawCount,
+    fileNames: mergedData.fileNames,
+    rawCount: mergedData.totalRawRows,
     filteredCount: totalFiltered,
     discardedCount,
-    groups,
-    fileName
+    selectedWarehouses,
+    groups
   };
 }

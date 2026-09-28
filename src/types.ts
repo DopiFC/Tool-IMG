@@ -15,10 +15,33 @@ export interface WarehouseGroup {
   items: FilteredWarehouseItem[];
 }
 
-export interface ParseResult {
+export interface WarehouseInfo {
+  name: string;
+  totalRows: number;
+  validRows: number; // rows with quantity > 0
+}
+
+export interface ParsedFileInfo {
+  fileName: string;
+  rowCount: number;
+}
+
+export interface MergedDataResult {
+  fileNames: string[];
+  filesInfo: ParsedFileInfo[];
+  mergedRows: Record<string, any>[];
+  totalRawRows: number;
+  detectedWarehouses: WarehouseInfo[];
+}
+
+export interface TableReportData {
+  fileNames: string[];
   rawCount: number;
   filteredCount: number;
   discardedCount: number;
+  selectedWarehouses: string[];
   groups: WarehouseGroup[];
-  fileName: string;
 }
+
+// Giữ lại kiểu tương thích ngược
+export type ParseResult = TableReportData;

@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tool IMG</title>
+  <!-- Thư viện PapaParse và html2canvas qua CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #F5F7FA;
+      color: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    /* Header chuẩn màu xanh nhận diện Nhà thuốc Long Châu #1452A3 */
+    .topbar {
+      background: #1452A3;
+      color: #ffffff;
+      padding: 14px 20px;
+      border-bottom: 4px solid #0b3c7b;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .topbar-content {
+      max-width: 1150px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: #ffffff;
+      color: #1452A3;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 18px;
+    }
+    .brand h1 {
+      font-size: 22px;
+      text-transform: uppercase;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+    }
+    .container {
+      max-width: 1150px;
+      width: 100%;
+      margin: 24px auto;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      flex: 1;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .upload-zone {
+      border: 2px dashed #94a3b8;
+      border-radius: 10px;
+      padding: 32px 16px;
+      text-align: center;
+      background: #f8fafc;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .upload-zone:hover {
+      border-color: #1452A3;
+      background: #f1f5f9;
+    }
+    .btn {
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s, opacity 0.15s;
+      user-select: none;
+    }
+    /* Nút chính màu Đỏ Long Châu #D32F2F */
+    .btn-red {
+      background: #D32F2F;
+      color: #ffffff;
+    }
+    .btn-red:hover {
+      background: #b71c1c;
+    }
+    .btn-blue {
+      background: #1452A3;
+      color: #ffffff;
+    }
+    .btn-blue:hover {
+      background: #0b3c7b;
+    }
+    .btn-slate {
+      background: #475569;
+      color: #ffffff;
+    }
+    .btn-slate:hover {
+      background: #334155;
+    }
+    .btn-light {
+      background: #ffffff;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+    }
+    .btn-light:hover {
+      background: #f1f5f9;
+    }
+    .btn-toggle-active {
+      background: #eff6ff;
+      color: #1452A3;
+      border: 1px solid #1452A3;
+    }
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #e2edf8;
+      font-size: 12px;
+    }
+    .stat-item {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .stat-value {
+      font-size: 14px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    /* CUSTOM DROPDOWN CHECKBOX (COMBO BOX) */
+    .combobox-container {
+      position: relative;
+      display: inline-block;
+      min-width: 280px;
+    }
+    .combobox-trigger {
+      width: 100%;
+      padding: 9px 14px;
+      background: #ffffff;
+      border: 2px solid #1452A3;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e293b;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .combobox-trigger:hover {
+      background: #f8fafc;
+    }
+    .combobox-arrow {
+      font-size: 11px;
+      color: #1452A3;
+      margin-left: 8px;
+      transition: transform 0.2s;
+    }
+    .combobox-arrow.open {
+      transform: rotate(180deg);
+    }
+    .combobox-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      min-width: 320px;
+      width: 100%;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      z-index: 1000;
+      padding: 6px;
+      max-height: 320px;
+      overflow-y: auto;
+      display: none;
+    }
+    .combobox-dropdown.show {
+      display: block;
+    }
+    .combobox-header {
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      justify-content: space-between;
+    }
+    .combobox-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .combobox-item:hover {
+      background: #f1f5f9;
+    }
+    .combobox-item.checked {
+      background: #f0f7ff;
+      color: #1452A3;
+    }
+    .combobox-item input[type="checkbox"] {
+      margin-top: 3px;
+      accent-color: #1452A3;
+      cursor: pointer;
+      width: 15px;
+      height: 15px;
+    }
+    .combobox-item-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .combobox-item-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .combobox-item-desc {
+      font-size: 11px;
+      color: #64748b;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge-sl {
+      background: #ecfdf5;
+      color: #047857;
+      padding: 0 5px;
+      border-radius: 4px;
+      border: 1px solid #a7f3d0;
+      font-weight: 600;
+    }
+
+    /* Container bảng dữ liệu cho phép cuộn tự do */
+    .table-wrapper {
+      overflow-x: auto;
+      overflow-y: visible;
+      background: #f8fafc;
+      padding: 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      margin-top: 12px;
+    }
+    /* ĐỊNH DẠNG BẢNG BẮT BUỘC: Times New Roman 13px, viền 1px solid black rõ nét */
+    #export-container {
+      background-color: #ffffff;
+      padding: 16px;
+      font-family: 'Times New Roman', serif;
+      font-size: 13px;
+      color: #000000;
+      width: fit-content;
+      min-width: 100%;
+      height: auto;
+      overflow: visible;
+    }
+    #report-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid black;
+      font-family: 'Times New Roman', serif;
+      font-size: 13px;
+      background-color: #ffffff;
+    }
+    #report-table th, #report-table td {
+      border: 1px solid black;
+      font-family: 'Times New Roman', serif;
+      font-size: 13px;
+    }
+    /* Header cột: Xanh dương đậm Long Châu #1452A3, chữ Trắng in đậm */
+    #report-table thead tr {
+      background-color: #1452A3;
+      color: #ffffff;
+    }
+    #report-table th {
+      background-color: #1452A3;
+      color: #ffffff;
+      padding: 6px 8px;
+      font-weight: bold;
+    }
+    /* Hàng tiêu đề nhóm gộp cột: Xanh dương đậm #1452A3, chữ Trắng, in đậm, căn giữa */
+    #report-table tr.group-header td {
+      background-color: #1452A3 !important;
+      color: #ffffff !important;
+      font-weight: bold;
+      padding: 7px 10px;
+      font-size: 13px;
+      text-transform: uppercase;
+      text-align: center !important;
+    }
+    #report-table td {
+      padding: 5px 8px;
+    }
+    .text-center { text-align: center; }
+    .text-left { text-align: left; }
+    .text-right { text-align: right; }
+    .hidden { display: none !important; }
+    footer {
+      background: #1452A3;
+      color: #ffffff;
+      padding: 16px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      border-top: 2px solid #0b3c7b;
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-content">
+    <div class="brand">
+      <div class="brand-logo">LC</div>
+      <h1>Tool IMG</h1>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn btn-red" id="btn-sample">Nạp Dữ Liệu Mẫu</button>
+      <button class="btn btn-slate" id="btn-clear" style="display: none;">Xóa Dữ Liệu</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <!-- BƯỚC 1: Tải lên File CSV / TXT (Tối đa 5 file cùng lúc) -->
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+      <h2 style="font-size: 13px; text-transform: uppercase; font-weight: 700; color: #1452A3;">
+        1. Tải Lên File CSV / TXT (Chọn tối đa 5 file cùng lúc)
+      </h2>
+      <span style="font-size: 11px; background: #f1f5f9; padding: 3px 8px; border-radius: 20px; border: 1px solid #cbd5e1; color: #475569;">
+        Đọc bất đồng bộ Promise.all() &amp; PapaParse
+      </span>
+    </div>
+
+    <div class="upload-zone" id="dropzone">
+      <input type="file" id="file-input" multiple accept=".csv,.txt" style="display: none;">
+      <p style="font-size: 14px; font-weight: 600; color: #1e293b;">
+        Nhấp để chọn 1 hoặc nhiều file (tối đa 5 file) hoặc kéo thả vào đây
+      </p>
+      <p style="font-size: 12px; color: #64748b; margin-top: 4px;">
+        Chỉ chấp nhận file có đuôi <strong>.csv</strong> hoặc <strong>.txt</strong> (Tự động gộp dữ liệu thành mảng duy nhất)
+      </p>
+      <div style="margin-top: 12px;">
+        <span class="btn btn-red" style="font-size: 12px;">Chọn tệp (Tối đa 5 file)</span>
+      </div>
+    </div>
+
+    <!-- Danh sách file & Thống kê gộp mergedData -->
+    <div class="stats-bar hidden" id="file-stats-panel">
+      <div class="stat-item" style="grid-column: 1 / -1; background: #ffffff;">
+        <span style="color: #64748b; font-weight: 600;">Danh sách file đã nạp:</span>
+        <div id="file-list-tags" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;"></div>
+      </div>
+      <div class="stat-item">
+        <span style="color: #64748b;">Tổng dòng gộp (mergedData):</span>
+        <div class="stat-value" id="stat-raw">0 dòng</div>
+      </div>
+      <div class="stat-item" style="background: #ecfdf5; border-color: #a7f3d0;">
+        <span style="color: #065f46;">Số kho duy nhất tìm thấy:</span>
+        <div class="stat-value" style="color: #047857;" id="stat-warehouses-count">0 kho</div>
+      </div>
+      <div class="stat-item" style="background: #f0f7ff; border-color: #cbe1f7;">
+        <span style="color: #1452A3;">Số kho đang được chọn:</span>
+        <div class="stat-value" style="color: #1452A3;" id="stat-selected-count">0 kho</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BƯỚC 2: Combo Box Chọn Kho & Nút Toggle "Chọn tất cả" -->
+  <div class="card hidden" id="warehouse-panel">
+    <div style="margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #e2edf8;">
+      <h2 style="font-size: 13px; text-transform: uppercase; font-weight: 700; color: #1452A3;">
+        2. Chọn Kho Cần Hiển Thị (Combo Box)
+      </h2>
+      <p style="font-size: 12px; color: #334155; margin-top: 4px; font-weight: 500;">
+        Tự động lọc các kho duy nhất từ mergedData. Nhấp vào Combo box bên dưới để chọn các kho bạn muốn xem:
+      </p>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+      <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <!-- CUSTOM DROPDOWN CHECKBOX (COMBO BOX) -->
+        <div class="combobox-container" id="combobox-container">
+          <div class="combobox-trigger" id="combobox-trigger">
+            <span id="combobox-label">Đang tải danh sách kho...</span>
+            <span class="combobox-arrow" id="combobox-arrow">▼</span>
+          </div>
+
+          <div class="combobox-dropdown" id="combobox-dropdown">
+            <div class="combobox-header">
+              <span id="combobox-total-label">Danh sách kho</span>
+              <span id="combobox-count-label" style="color: #1452A3;">0 đã chọn</span>
+            </div>
+            <div id="combobox-items-list" style="margin-top: 4px;"></div>
+          </div>
+        </div>
+
+        <!-- ĐÚNG 1 NÚT TOGGLE "CHỌN TẤT CẢ" (Ấn 1: Tick all; Ấn 2: Bỏ tick all) -->
+        <button class="btn btn-light" id="btn-toggle-all" title="Ấn 1: Chọn tất cả; Ấn 2: Bỏ chọn tất cả">
+          <span id="toggle-icon">☐</span>
+          <span id="toggle-text">Chọn tất cả</span>
+        </button>
+      </div>
+
+      <!-- NÚT CHÍNH: HIỂN THỊ DỮ LIỆU - MÀU ĐỎ #D32F2F -->
+      <button class="btn btn-red" id="btn-render-data" style="font-size: 13px; padding: 10px 20px;">
+        Hiển thị dữ liệu
+      </button>
+    </div>
+  </div>
+
+  <!-- BƯỚC 3: Hiển thị Bảng & Xuất Ảnh -->
+  <div class="card hidden" id="result-panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #e2edf8;">
+      <div>
+        <h2 style="font-size: 13px; text-transform: uppercase; font-weight: 700; color: #1452A3;">
+          3. Bảng Kết Quả &amp; Xuất Báo Cáo
+        </h2>
+        <div style="display: flex; gap: 8px; margin-top: 6px; font-size: 12px; color: #475569; flex-wrap: wrap;">
+          <span style="background: #f1f5f9; padding: 2px 8px; border-radius: 4px; border: 1px solid #cbd5e1;">
+            Số kho hiển thị: <strong id="res-warehouse-count">0 kho</strong>
+          </span>
+          <span style="background: #ecfdf5; color: #065f46; padding: 2px 8px; border-radius: 4px; border: 1px solid #a7f3d0; font-weight: 600;">
+            Tổng dòng hiển thị (SL &gt; 0): <strong id="res-filtered-count">0 dòng</strong>
+          </span>
+          <span style="background: #f1f5f9; padding: 2px 8px; border-radius: 4px; border: 1px solid #cbd5e1;">
+            Loại bỏ (SL = 0 / Kho khác): <strong id="res-discarded-count">0 dòng</strong>
+          </span>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-red" id="btn-export-img">
+          Xuất thành Ảnh (PNG)
+        </button>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <div id="export-container">
+        <table id="report-table">
+          <thead>
+            <tr>
+              <th style="width: 45px;" class="text-center">STT</th>
+              <th style="width: 85px;" class="text-center">Mã shop</th>
+              <th style="min-width: 140px;" class="text-left">Tên shop</th>
+              <th style="width: 80px;" class="text-center">Mã kho</th>
+              <th style="width: 130px;" class="text-left">Tên kho</th>
+              <th style="width: 100px;" class="text-center">Mã sản phẩm</th>
+              <th style="min-width: 220px;" class="text-left">Tên sản phẩm</th>
+              <th style="width: 100px;" class="text-right">Tổng số lượng</th>
+              <th style="width: 75px;" class="text-center">Tên ĐVT</th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <!-- Render 100% dòng bằng JS thuần (Không giới hạn) -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Copyright Bao2026
+</footer>
+
+<script>
+  // Thành phần DOM
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('file-input');
+  const fileStatsPanel = document.getElementById('file-stats-panel');
+  const fileListTags = document.getElementById('file-list-tags');
+  const warehousePanel = document.getElementById('warehouse-panel');
+  const resultPanel = document.getElementById('result-panel');
+  const tableBody = document.getElementById('table-body');
+
+  const comboboxContainer = document.getElementById('combobox-container');
+  const comboboxTrigger = document.getElementById('combobox-trigger');
+  const comboboxArrow = document.getElementById('combobox-arrow');
+  const comboboxDropdown = document.getElementById('combobox-dropdown');
+  const comboboxLabel = document.getElementById('combobox-label');
+  const comboboxTotalLabel = document.getElementById('combobox-total-label');
+  const comboboxCountLabel = document.getElementById('combobox-count-label');
+  const comboboxItemsList = document.getElementById('combobox-items-list');
+
+  const btnToggleAll = document.getElementById('btn-toggle-all');
+  const toggleIcon = document.getElementById('toggle-icon');
+  const toggleText = document.getElementById('toggle-text');
+  const btnRenderData = document.getElementById('btn-render-data');
+  const btnExportImg = document.getElementById('btn-export-img');
+  const btnSample = document.getElementById('btn-sample');
+  const btnClear = document.getElementById('btn-clear');
+
+  // Trạng thái ứng dụng
+  let mergedData = []; // Mảng gộp tất cả các dòng từ các file
+  let detectedWarehouses = []; // Danh sách các kho duy nhất: [{ name, totalRows, validRows }]
+  let selectedWarehouseNames = []; // Các kho đang được tick
+
+  // Sự kiện kéo thả file
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleUploadedFiles(e.target.files);
+    }
+  });
+
+  dropzone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = '#1452A3';
+    dropzone.style.background = '#f1f5f9';
+  });
+
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.style.borderColor = '#94a3b8';
+    dropzone.style.background = '#f8fafc';
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropzone.style.borderColor = '#94a3b8';
+    dropzone.style.background = '#f8fafc';
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleUploadedFiles(e.dataTransfer.files);
+    }
+  });
+
+  // Đóng Custom Dropdown khi click ra ngoài
+  document.addEventListener('click', (e) => {
+    if (!comboboxContainer.contains(e.target)) {
+      comboboxDropdown.classList.remove('show');
+      comboboxArrow.classList.remove('open');
+    }
+  });
+
+  comboboxTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = comboboxDropdown.classList.toggle('show');
+    comboboxArrow.classList.toggle('open', isOpen);
+  });
+
+  function cleanString(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/^\uFEFF/, '').trim();
+  }
+
+  function normalizeText(text) {
+    return String(text || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function findColumn(row, candidates) {
+    const keys = Object.keys(row);
+    // 1. So khớp chính xác
+    for (const c of candidates) {
+      for (const k of keys) {
+        if (cleanString(k).toLowerCase() === c.toLowerCase()) {
+          const val = cleanString(row[k]);
+          if (val) return val;
+        }
+      }
+    }
+    // 2. So khớp không dấu
+    for (const c of candidates) {
+      for (const k of keys) {
+        if (normalizeText(cleanString(k)) === normalizeText(c)) {
+          const val = cleanString(row[k]);
+          if (val) return val;
+        }
+      }
+    }
+    // 3. So khớp chuỗi con
+    for (const c of candidates) {
+      for (const k of keys) {
+        if (cleanString(k).toLowerCase().includes(c.toLowerCase())) {
+          const val = cleanString(row[k]);
+          if (val) return val;
+        }
+      }
+    }
+    return '';
+  }
+
+  /**
+   * LOGIC ĐƠN VỊ TÍNH ĐA CẤP (BẢO LƯU 100%):
+   * Cột "Tổng số lượng" đại diện cho ĐƠN VỊ NHỎ NHẤT hiện có của sản phẩm.
+   * Thứ tự ưu tiên kiểm tra lần lượt 3 cấp đơn vị:
+   * - Ưu tiên 1 (Level 3): Cột "Tên ĐVT L3" (ví dụ: Viên, Gói nhỏ, Ống con) -> Nếu CÓ DỮ LIỆU, bắt buộc lấy
+   * - Ưu tiên 2 (Level 2): Nếu L3 trống, kiểm tra cột "Tên ĐVT L2" (ví dụ: Vỉ, Vĩ, Hộp con) -> Nếu CÓ DỮ LIỆU, lấy giá trị này
+   * - Ưu tiên 3 (Level 1): Nếu cả L3 và L2 đều trống, lấy cột "Tên ĐVT L1" (ví dụ: Hộp, Tuýp, Chai, Lọ, Thùng)
+   * - Fallback: Kiểm tra các cột ĐVT chung nếu không có L1/L2/L3
+   */
+  function extractDvt(row) {
+    // Ưu tiên 1 (Level 3): Đơn vị nhỏ nhất (vd: Viên)
+    const l3 = findColumn(row, [
+      'Tên ĐVT L3', 'Ten DVT L3', 'ĐVT L3', 'DVT L3', 'Tên ĐVT L03', 'Ten DVT L03', 'Đơn vị tính L3', 'Don vi tinh L3'
+    ]);
+    if (l3 && l3.trim() !== '') return l3.trim();
+
+    // Ưu tiên 2 (Level 2): Đơn vị trung gian (vd: Vỉ)
+    const l2 = findColumn(row, [
+      'Tên ĐVT L2', 'Ten DVT L2', 'ĐVT L2', 'DVT L2', 'Tên ĐVT L02', 'Ten DVT L02', 'Đơn vị tính L2', 'Don vi tinh L2'
+    ]);
+    if (l2 && l2.trim() !== '') return l2.trim();
+
+    // Ưu tiên 3 (Level 1): Đơn vị lớn nhất (vd: Hộp, Tuýp, Chai)
+    const l1 = findColumn(row, [
+      'Tên ĐVT L1', 'Ten DVT L1', 'ĐVT L1', 'DVT L1', 'Tên ĐVT L01', 'Ten DVT L01', 'Đơn vị tính L1', 'Don vi tinh L1'
+    ]);
+    if (l1 && l1.trim() !== '') return l1.trim();
+
+    // Fallback chung nếu file không phân chia L1/L2/L3
+    const fallback = findColumn(row, [
+      'Tên ĐVT', 'Ten DVT', 'ĐVT', 'DVT', 'Đơn vị tính', 'Don vi tinh', 'Unit'
+    ]);
+    if (fallback && fallback.trim() !== '') return fallback.trim();
+
+    return '-';
+  }
+
+  // Chuyển đổi và làm sạch giá trị số lượng
+  function parseQuantity(rawVal) {
+    if (rawVal === null || rawVal === undefined) return 0;
+    const str = String(rawVal).trim();
+    if (!str) return 0;
+    const cleaned = str.replace(/,/g, '').replace(/\s+/g, '');
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+  }
+
+  /**
+   * TÍNH NĂNG 1: XỬ LÝ NHIỀU FILE CÙNG LÚC (TỐI ĐA 5 FILE)
+   * Sử dụng Promise.all() kết hợp Papa.parse để đọc bất đồng bộ và gộp thành mergedData
+   */
+  async function handleUploadedFiles(fileList) {
+    const files = Array.from(fileList);
+    if (files.length === 0) return;
+
+    // KIỂM TRA SỐ LƯỢNG FILE: TỐI ĐA 5 FILE
+    if (files.length > 5) {
+      alert(`Lỗi: Bạn đã chọn ${files.length} file. Hệ thống chỉ cho phép tải lên tối đa 5 file cùng lúc!`);
+      fileInput.value = '';
+      return;
+    }
+
+    // KIỂM TRA ĐỊNH DẠNG FILE
+    for (const f of files) {
+      const ext = f.name.split('.').pop().toLowerCase();
+      if (ext !== 'csv' && ext !== 'txt') {
+        alert(`Lỗi: File "${f.name}" không hợp lệ! Chỉ chấp nhận file .csv hoặc .txt.`);
+        fileInput.value = '';
+        return;
+      }
+    }
+
+    try {
+      // Đọc bất đồng bộ tất cả các file qua Promise.all()
+      const filePromises = files.map(file => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const content = e.target.result;
+            if (!content || !content.trim()) {
+              resolve({ fileName: file.name, rows: [] });
+              return;
+            }
+
+            // Nhận diện phân cách: Ưu tiên dấu Tab \t
+            let delimiter = '\t';
+            const firstLine = content.split(/\r?\n/)[0] || '';
+            if (!firstLine.includes('\t') && firstLine.includes(',')) {
+              delimiter = ',';
+            } else if (!firstLine.includes('\t') && firstLine.includes(';')) {
+              delimiter = ';';
+            }
+
+            Papa.parse(content, {
+              header: true,
+              delimiter: delimiter,
+              skipEmptyLines: 'greedy',
+              transformHeader: (h) => cleanString(h),
+              complete: (results) => {
+                resolve({ fileName: file.name, rows: results.data || [] });
+              },
+              error: (err) => reject(err)
+            });
+          };
+          reader.onerror = () => reject(new Error(`Không thể đọc file: ${file.name}`));
+          reader.readAsText(file, 'utf-8');
+        });
+      });
+
+      const parsedResults = await Promise.all(filePromises);
+
+      // GỘP (MERGE) TOÀN BỘ DỮ LIỆU TỪ CÁC FILE THÀNH MỘT MẢNG DUY NHẤT (mergedData)
+      mergedData = [];
+      const fileSummaries = [];
+
+      for (const item of parsedResults) {
+        fileSummaries.push({ fileName: item.fileName, count: item.rows.length });
+        mergedData = mergedData.concat(item.rows);
+      }
+
+      if (mergedData.length === 0) {
+        alert("Lỗi: Không tìm thấy dữ liệu dòng nào trong các file tải lên!");
+        return;
+      }
+
+      // TỰ ĐỘNG QUÉT VÀ LỌC RA DANH SÁCH CÁC KHO DUY NHẤT (Unique "Tên kho")
+      processMergedWarehouses(fileSummaries);
+
+    } catch (err) {
+      alert("Lỗi xử lý file: " + (err.message || err));
+    }
+  }
+
+  /**
+   * TÍNH NĂNG 2: QUÉT KHO DUY NHẤT & KHỞI TẠO COMBO BOX
+   */
+  function processMergedWarehouses(fileSummaries) {
+    const warehouseMap = new Map();
+
+    for (const row of mergedData) {
+      const tenKhoRaw = cleanString(findColumn(row, ['Tên kho', 'Ten kho', 'Kho']));
+      if (!tenKhoRaw) continue;
+
+      const qtyRaw = findColumn(row, ['Tổng số lượng', 'Tong so luong', 'Số lượng', 'SL', 'Quantity']);
+      const qty = parseQuantity(qtyRaw);
+
+      const item = warehouseMap.get(tenKhoRaw) || { totalRows: 0, validRows: 0 };
+      item.totalRows++;
+      if (qty > 0) item.validRows++;
+      warehouseMap.set(tenKhoRaw, item);
+    }
+
+    detectedWarehouses = Array.from(warehouseMap.entries()).map(([name, data]) => ({
+      name,
+      totalRows: data.totalRows,
+      validRows: data.validRows
+    }));
+
+    if (detectedWarehouses.length === 0) {
+      alert("Lỗi: Không tìm thấy thông tin cột 'Tên kho' trong các file vừa tải lên!");
+      return;
+    }
+
+    // Mặc định chọn tất cả các kho có sản phẩm > 0
+    selectedWarehouseNames = detectedWarehouses
+      .filter(w => w.validRows > 0)
+      .map(w => w.name);
+    if (selectedWarehouseNames.length === 0) {
+      selectedWarehouseNames = detectedWarehouses.map(w => w.name);
+    }
+
+    // Cập nhật giao diện thống kê
+    fileListTags.innerHTML = '';
+    fileSummaries.forEach(fs => {
+      const span = document.createElement('span');
+      span.style.cssText = 'background: #f0f7ff; color: #1452A3; border: 1px solid #cbe1f7; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;';
+      span.innerHTML = `<span>${escapeHtml(fs.fileName)}</span><span style="color: #64748b; font-size: 10px;">(${fs.count} dòng)</span>`;
+      fileListTags.appendChild(span);
+    });
+
+    document.getElementById('stat-raw').textContent = mergedData.length + ' dòng';
+    document.getElementById('stat-warehouses-count').textContent = detectedWarehouses.length + ' kho';
+    fileStatsPanel.classList.remove('hidden');
+
+    // Dựng Custom Dropdown Combo Box
+    renderCombobox();
+
+    // Hiển thị phần chọn kho, ẩn bảng kết quả cũ
+    warehousePanel.classList.remove('hidden');
+    resultPanel.classList.add('hidden');
+    btnClear.style.display = 'inline-block';
+  }
+
+  /**
+   * RENDER GIAO DIỆN COMBO BOX & CẬP NHẬT TRẠNG THÁI NÚT TOGGLE
+   */
+  function renderCombobox() {
+    comboboxItemsList.innerHTML = '';
+    comboboxTotalLabel.textContent = `Danh sách kho (${detectedWarehouses.length})`;
+
+    detectedWarehouses.forEach(w => {
+      const isChecked = selectedWarehouseNames.includes(w.name);
+
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'combobox-item' + (isChecked ? ' checked' : '');
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = isChecked;
+      cb.value = w.name;
+
+      cb.addEventListener('change', (e) => {
+        e.stopPropagation();
+        toggleWarehouseSelection(w.name, cb.checked);
+      });
+
+      itemDiv.addEventListener('click', (e) => {
+        if (e.target !== cb) {
+          cb.checked = !cb.checked;
+          toggleWarehouseSelection(w.name, cb.checked);
+        }
+      });
+
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'combobox-item-content';
+      contentDiv.innerHTML = `
+        <div class="combobox-item-title" title="${escapeHtml(w.name)}">${escapeHtml(w.name)}</div>
+        <div class="combobox-item-desc">
+          <span>${w.totalRows} dòng</span>
+          ${w.validRows > 0
+            ? `<span class="badge-sl">${w.validRows} SP &gt; 0</span>`
+            : `<span style="background: #fff1f2; color: #e11d48; padding: 0 4px; border-radius: 4px; font-size: 10px;">0 SP &gt; 0</span>`
+          }
+        </div>
+      `;
+
+      itemDiv.appendChild(cb);
+      itemDiv.appendChild(contentDiv);
+      comboboxItemsList.appendChild(itemDiv);
+    });
+
+    updateComboboxTriggerLabel();
+    updateToggleAllButton();
+  }
+
+  function toggleWarehouseSelection(name, shouldCheck) {
+    if (shouldCheck) {
+      if (!selectedWarehouseNames.includes(name)) {
+        selectedWarehouseNames.push(name);
+      }
+    } else {
+      selectedWarehouseNames = selectedWarehouseNames.filter(n => n !== name);
+    }
+    renderCombobox();
+  }
+
+  function updateComboboxTriggerLabel() {
+    const total = detectedWarehouses.length;
+    const selected = selectedWarehouseNames.length;
+    document.getElementById('stat-selected-count').textContent = `${selected} / ${total} kho`;
+    comboboxCountLabel.textContent = `${selected} đã chọn`;
+
+    if (selected === 0) {
+      comboboxLabel.textContent = 'Chưa chọn kho nào';
+    } else if (selected === total) {
+      comboboxLabel.textContent = `Đã chọn tất cả (${selected} kho)`;
+    } else {
+      comboboxLabel.textContent = `Đã chọn ${selected} / ${total} kho`;
+    }
+    btnRenderData.textContent = `Hiển thị dữ liệu (${selected} kho)`;
+  }
+
+  /**
+   * CHỨC NĂNG "CHỌN TẤT CẢ" (TOGGLE DUY NHẤT 1 NÚT):
+   * Logic: Ấn lần 1 -> Tick chọn toàn bộ kho; Ấn lần 2 -> Bỏ tick toàn bộ.
+   */
+  function updateToggleAllButton() {
+    const total = detectedWarehouses.length;
+    const selected = selectedWarehouseNames.length;
+    const isAll = total > 0 && selected === total;
+
+    if (isAll) {
+      btnToggleAll.classList.add('btn-toggle-active');
+      toggleIcon.textContent = '☑';
+      toggleText.textContent = 'Bỏ chọn tất cả';
+    } else {
+      btnToggleAll.classList.remove('btn-toggle-active');
+      toggleIcon.textContent = '☐';
+      toggleText.textContent = 'Chọn tất cả';
+    }
+  }
+
+  btnToggleAll.addEventListener('click', () => {
+    const total = detectedWarehouses.length;
+    const selected = selectedWarehouseNames.length;
+
+    // Ấn lần 1: Nếu chưa chọn hết -> Tick chọn tất cả
+    // Ấn lần 2: Nếu đã chọn hết -> Bỏ tick toàn bộ
+    if (selected === total) {
+      selectedWarehouseNames = [];
+    } else {
+      selectedWarehouseNames = detectedWarehouses.map(w => w.name);
+    }
+    renderCombobox();
+  });
+
+  /**
+   * BƯỚC 3: KHI BẤM "HIỂN THỊ DỮ LIỆU" MỚI BẮT ĐẦU VẼ BẢNG
+   */
+  btnRenderData.addEventListener('click', () => {
+    if (!mergedData || mergedData.length === 0) {
+      alert("Vui lòng tải lên file CSV/TXT trước!");
+      return;
+    }
+
+    if (selectedWarehouseNames.length === 0) {
+      alert("Vui lòng tick chọn ít nhất 1 kho trong Combo box để hiển thị dữ liệu!");
+      return;
+    }
+
+    // Đóng dropdown nếu đang mở
+    comboboxDropdown.classList.remove('show');
+    comboboxArrow.classList.remove('open');
+
+    renderTable();
+
+    // Cuộn nhẹ xuống bảng kết quả
+    setTimeout(() => {
+      resultPanel.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  });
+
+  /**
+   * VẼ BẢNG DỮ LIỆU DỰA TRÊN CÁC KHO ĐÃ TICK
+   * BẢO LƯU 100% CÁC QUY TẮC CŨ:
+   * - ĐVT đa cấp: L3 -> L2 -> L1
+   * - Lọc số lượng: Tổng số lượng > 0 (loại bỏ hoàn toàn SL = 0)
+   * - Không giới hạn dòng: 100% dòng, KHÔNG DÙNG .slice(), không phân trang
+   * - Khởi đầu mỗi nhóm kho là 1 dòng gộp cột (colspan) bôi nền Xanh Navy #1452A3 chữ trắng, in đậm, căn giữa
+   * - Ẩn nhóm kho nếu kho đó không có sản phẩm nào có SL > 0
+   */
+  function renderTable() {
+    const groupMap = {};
+    for (const w of selectedWarehouseNames) {
+      groupMap[w] = [];
+    }
+
+    let discarded = 0;
+    let filtered = 0;
+
+    for (const row of mergedData) {
+      const tenKhoRaw = cleanString(findColumn(row, ['Tên kho', 'Ten kho', 'Kho']));
+
+      const matched = selectedWarehouseNames.find(
+        w => w.toLowerCase() === tenKhoRaw.toLowerCase()
+      );
+
+      const tongSoLuongRaw = findColumn(row, ['Tổng số lượng', 'Tong so luong', 'Số lượng', 'SL', 'Quantity']);
+      const numericQuantity = parseQuantity(tongSoLuongRaw);
+
+      // ĐIỀU KIỆN LỌC ĐỒNG THỜI (&&):
+      // (1) Thuộc các kho được tick chọn
+      // (2) VÀ Tổng số lượng PHẢI > 0
+      if (!matched || !(numericQuantity > 0)) {
+        discarded++;
+        continue;
+      }
+
+      const maShop = findColumn(row, ['Mã shop', 'Ma shop', 'Shop ID']);
+      const tenShop = findColumn(row, ['Tên shop', 'Ten shop', 'Shop Name']);
+      const maKho = findColumn(row, ['Mã kho', 'Ma kho', 'Kho ID']);
+      const maSanPham = findColumn(row, ['Mã sản phẩm', 'Mã SP', 'Ma san pham', 'SKU']);
+      const tenSanPham = findColumn(row, ['Tên sản phẩm', 'Tên SP', 'Ten san pham']);
+
+      // Cột "Tên ĐVT": Đa cấp ưu tiên L3 -> L2 -> L1
+      const tenDvt = extractDvt(row);
+
+      const groupList = groupMap[matched];
+      const newStt = groupList.length + 1;
+
+      groupList.push({
+        stt: newStt,
+        maShop: maShop || '-',
+        tenShop: tenShop || '-',
+        maKho: maKho || '-',
+        tenKho: tenKhoRaw || matched,
+        maSanPham: maSanPham || '-',
+        tenSanPham: tenSanPham || '-',
+        tongSoLuong: tongSoLuongRaw || String(numericQuantity),
+        tenDvt: tenDvt || '-'
+      });
+      filtered++;
+    }
+
+    tableBody.innerHTML = '';
+    let renderedWarehouseCount = 0;
+
+    for (const target of selectedWarehouseNames) {
+      const items = groupMap[target];
+      // Nếu một kho sau khi lọc số lượng > 0 mà không có sản phẩm nào -> KHÔNG IN tiêu đề kho
+      if (!items || items.length === 0) continue;
+
+      renderedWarehouseCount++;
+
+      // Hàng Tiêu Đề Nhóm Kho Gộp Cột (Colspan) Nền Xanh Navy #1452A3, chữ Trắng in đậm, CĂN GIỮA
+      const groupTr = document.createElement('tr');
+      groupTr.className = 'group-header';
+      groupTr.innerHTML = `<td colspan="9" style="border: 1px solid black;">NHÓM KHO: ${escapeHtml(target.toUpperCase())}</td>`;
+      tableBody.appendChild(groupTr);
+
+      // Render 100% tất cả các dòng sản phẩm của kho đó (Không giới hạn dòng)
+      for (const item of items) {
+        const tr = document.createElement('tr');
+        tr.style.backgroundColor = '#ffffff';
+        tr.innerHTML = `
+          <td class="text-center" style="border: 1px solid black;">${item.stt}</td>
+          <td class="text-center" style="border: 1px solid black;">${escapeHtml(item.maShop)}</td>
+          <td class="text-left" style="border: 1px solid black;">${escapeHtml(item.tenShop)}</td>
+          <td class="text-center" style="border: 1px solid black;">${escapeHtml(item.maKho)}</td>
+          <td class="text-left" style="border: 1px solid black;">${escapeHtml(item.tenKho)}</td>
+          <td class="text-center" style="border: 1px solid black;">${escapeHtml(item.maSanPham)}</td>
+          <td class="text-left" style="border: 1px solid black;">${escapeHtml(item.tenSanPham)}</td>
+          <td class="text-right" style="border: 1px solid black; font-weight: bold;">${escapeHtml(item.tongSoLuong)}</td>
+          <td class="text-center" style="border: 1px solid black;">${escapeHtml(item.tenDvt)}</td>
+        `;
+        tableBody.appendChild(tr);
+      }
+    }
+
+    if (renderedWarehouseCount === 0) {
+      const emptyTr = document.createElement('tr');
+      emptyTr.innerHTML = `<td colspan="9" style="border: 1px solid black; padding: 16px; text-align: center; font-style: italic;">Không có sản phẩm nào có số lượng &gt; 0 trong các kho đã chọn.</td>`;
+      tableBody.appendChild(emptyTr);
+    }
+
+    document.getElementById('res-warehouse-count').textContent = renderedWarehouseCount + ' kho';
+    document.getElementById('res-filtered-count').textContent = filtered + ' dòng';
+    document.getElementById('res-discarded-count').textContent = discarded + ' dòng';
+
+    resultPanel.classList.remove('hidden');
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // Dữ liệu mẫu chuẩn kiểm tra
+  const SAMPLE_TSV = [
+    ['Mã shop', 'Tên shop', 'Mã kho', 'Tên kho', 'Mã sản phẩm', 'Tên sản phẩm', 'Tổng số lượng', 'Tên ĐVT L1', 'Tên ĐVT L2', 'Tên ĐVT L3'].join('\t'),
+
+    // Kho hàng KM
+    ['LC01', 'Nhà thuốc Long Châu Q1', 'KM01', 'Kho hàng KM', 'LC-101', 'Thuốc giảm đau Panadol Extra Đỏ 500mg', '300', 'Hộp', 'Vỉ', 'Viên'].join('\t'),
+    ['LC01', 'Nhà thuốc Long Châu Q1', 'KM01', 'Kho hàng KM', 'LC-102', 'Viên sủi tăng đề kháng Berocca Cam', '450', 'Hộp', 'Tuýp', 'Viên'].join('\t'),
+    ['LC02', 'Nhà thuốc Long Châu Q3', 'KM01', 'Kho hàng KM', 'LC-103', 'Men vi sinh Enterogermina 4 tỷ bào tử', '240', 'Hộp', 'Vỉ', 'Ống'].join('\t'),
+    ['LC02', 'Nhà thuốc Long Châu Q3', 'KM01', 'Kho hàng KM', 'LC-104', 'Cốm tiêu hóa Bio-acimin Gold Plus', '600', 'Hộp', 'Gói nhỏ', 'Gói'].join('\t'),
+    ['LC01', 'Nhà thuốc Long Châu Q1', 'KM01', 'Kho hàng KM', 'LC-105', 'Khẩu trang y tế 4 lớp kháng khuẩn LC Safe', '1500', 'Thùng', 'Hộp', 'Cái'].join('\t'),
+    ['LC02', 'Nhà thuốc Long Châu Q3', 'KM01', 'Kho hàng KM', 'LC-106', 'Dầu nóng xoa bóp Salonpas Gel 30g', '85', 'Hộp', '', 'Tuýp'].join('\t'),
+    ['LC01', 'Nhà thuốc Long Châu Q1', 'KM01', 'Kho hàng KM', 'LC-107', 'Siro ho thảo dược Prospan chai 100ml', '120', 'Hộp', 'Chai', ''].join('\t'),
+    ['LC02', 'Nhà thuốc Long Châu Q3', 'KM01', 'Kho hàng KM', 'LC-108', 'Nước muối sinh lý Fysoline kháng khuẩn', '320', 'Hộp', 'Vỉ', 'Ống'].join('\t'),
+    ['LC01', 'Nhà thuốc Long Châu Q1', 'KM01', 'Kho hàng KM', 'LC-115', 'Mặt hàng KM hết tồn kho (SL=0 loại bỏ)', '0', 'Hộp', 'Vỉ', 'Viên'].join('\t'),
+
+    // Kho hàng chờ xử lý
+    ['LC03', 'Nhà thuốc Long Châu Tân Bình', 'CZ02', 'Kho hàng chờ xử lý', 'LC-201', 'Máy đo huyết áp bắp tay tự động Omron HEM-7120', '35', 'Chiếc', '', ''].join('\t'),
+    ['LC03', 'Nhà thuốc Long Châu Tân Bình', 'CZ02', 'Kho hàng chờ xử lý', 'LC-202', 'Máy xông khí dung mũi họng Beurer IH18', '28', 'Bộ', '', ''].join('\t'),
+    ['LC01', 'Nhà thuốc Long Châu Q1', 'CZ02', 'Kho chờ xử lý', 'LC-203', 'Cân sức khỏe điện tử thông minh Xiaomi Gen 2', '45', 'Cái', '', ''].join('\t'),
+    ['LC03', 'Nhà thuốc Long Châu Tân Bình', 'CZ02', 'Kho chờ xử lý', 'LC-204', 'Viên bổ não Ginkgo Biloba 120mg Nature Made', '180', 'Hộp', '', 'Viên'].join('\t'),
+    ['LC03', 'Nhà thuốc Long Châu Tân Bình', 'CZ02', 'Kho hàng chờ xử lý', 'LC-214', 'Mặt hàng hỏng chờ xử lý SL=0 (Test loại bỏ)', '0', 'Hộp', 'Vỉ', 'Viên'].join('\t'),
+
+    // Kho hành chính
+    ['LC04', 'Văn Phòng Điều Hành Long Châu', 'HC03', 'Kho hành chính', 'LC-301', 'Giấy in hóa đơn nhiệt K80x45mm quầy thu ngân', '600', 'Thùng', '', 'Cuộn'].join('\t'),
+    ['LC04', 'Văn Phòng Điều Hành Long Châu', 'HC03', 'Kho hành chính', 'LC-302', 'Túi đựng thuốc tự hủy sinh học Long Châu cỡ S', '250', 'Bao', '', 'Kg'].join('\t'),
+    ['LC04', 'Văn Phòng Điều Hành Long Châu', 'HC03', 'Kho hành chính', 'LC-306', 'Bút bi ký đơn thuốc Thiên Long 0.5mm xanh', '750', 'Hộp', '', 'Cây'].join('\t'),
+    ['LC04', 'Văn Phòng Điều Hành Long Châu', 'HC03', 'Kho hành chính', 'LC-314', 'Vật tư văn phòng hết tồn kho SL=0 (Test loại bỏ)', '0', 'Hộp', '', 'Cái'].join('\t')
+  ].join('\n');
+
+  btnSample.addEventListener('click', () => {
+    const parsed = Papa.parse(SAMPLE_TSV, {
+      header: true,
+      delimiter: '\t',
+      skipEmptyLines: 'greedy',
+      transformHeader: (h) => cleanString(h)
+    });
+    mergedData = parsed.data || [];
+    processMergedWarehouses([{ fileName: 'du_lieu_mau_3_kho.tsv', count: mergedData.length }]);
+    renderTable();
+  });
+
+  btnClear.addEventListener('click', () => {
+    fileStatsPanel.classList.add('hidden');
+    warehousePanel.classList.add('hidden');
+    resultPanel.classList.add('hidden');
+    tableBody.innerHTML = '';
+    fileInput.value = '';
+    mergedData = [];
+    detectedWarehouses = [];
+    selectedWarehouseNames = [];
+    btnClear.style.display = 'none';
+  });
+
+  // XUẤT ẢNH DÀI KHÔNG LỖI VỚI html2canvas:
+  // { scale: 2, useCORS: true, scrollY: -window.scrollY, windowHeight: document.documentElement.scrollHeight }
+  btnExportImg.addEventListener('click', async () => {
+    const exportContainer = document.getElementById('export-container');
+    if (!exportContainer) return;
+
+    btnExportImg.disabled = true;
+    btnExportImg.textContent = 'Đang tạo ảnh...';
+
+    try {
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+      await new Promise(r => requestAnimationFrame(() => setTimeout(r, 60)));
+
+      const actualWidth = Math.max(exportContainer.scrollWidth, exportContainer.offsetWidth, exportContainer.clientWidth);
+      const actualHeight = Math.max(exportContainer.scrollHeight, exportContainer.offsetHeight, exportContainer.clientHeight);
+      const winHeight = document.documentElement ? Math.max(document.documentElement.scrollHeight, actualHeight) : actualHeight;
+      const scrollOffset = -window.scrollY;
+
+      const canvas = await html2canvas(exportContainer, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: scrollOffset, // { scrollY: -window.scrollY }
+        width: actualWidth,
+        height: actualHeight,
+        windowWidth: actualWidth + 100,
+        windowHeight: winHeight, // { windowHeight: document.documentElement.scrollHeight }
+        onclone: (clonedDoc, clonedEl) => {
+          clonedEl.style.overflow = 'visible';
+          clonedEl.style.height = actualHeight + 'px';
+          clonedEl.style.maxHeight = 'none';
+          clonedEl.style.width = actualWidth + 'px';
+          clonedEl.style.maxWidth = 'none';
+
+          // Đảm bảo viền 1px solid black rõ nét và Times New Roman 13px
+          const tables = clonedEl.querySelectorAll('table');
+          tables.forEach(t => {
+            t.style.fontFamily = "'Times New Roman', serif";
+            t.style.fontSize = '13px';
+            t.style.borderCollapse = 'collapse';
+            t.style.border = '1px solid black';
+          });
+          const cells = clonedEl.querySelectorAll('th, td');
+          cells.forEach(c => {
+            c.style.fontFamily = "'Times New Roman', serif";
+            c.style.fontSize = '13px';
+            c.style.border = '1px solid black';
+          });
+        }
+      });
+
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          alert('Lỗi: Không tạo được ảnh.');
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Bao_Cao_Kho_${new Date().toISOString().slice(0, 10)}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      }, 'image/png');
+
+    } catch (err) {
+      alert('Lỗi khi xuất ảnh: ' + (err.message || err));
+    } finally {
+      btnExportImg.disabled = false;
+      btnExportImg.textContent = 'Xuất thành Ảnh (PNG)';
+    }
+  });
+</script>
+
+</body>
+</html>
